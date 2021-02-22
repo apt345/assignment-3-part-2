@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>d3.js data driven page</title>
+        <script src="https://d3js.org/d3.v6.min.js">
+        //el style es CSS que pone las fechas de las tablas en verde o
+        //en negrita si pasamos el cursor por encima
+        //pero para eso hace falta ponerle clase date a las celdas de fecha
+        </script>
+        <style>
+            th{
+                color: blue
+            }
+
+            .name{
+                color: red;
+                border: solid black 1pt
+            }
+            .name:hover{
+                border-width: 2pt;
+            }
+            .date {
+                color: green;
+            }
+            
+            .date:hover
+            {
+                font-weight: bold;
+            }
+
+            #myCanvas{
+                background-color: yellow;
+            }
+        </style>
+    </head>
+
+    <body>
+        <p>
+            This page is inspired by the 
+            <a href="https://observablehq.com/@d3/bar-chart-race" target="_blank"><b>Bar Chart Race</b></a>
+            <button onclick="colorP()">Click me</button>
+
+
+            <div id="dateSelector"></div>
+
+            <script>//vamos a crear el plot. Width 100% se adecua al tamaño de la ventana del navegador</script>
+            <svg id="myCanvas" style="width:100%; height: 200px;"></svg>
+
+            <table id="table">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+
+            
+            
+
+        </p>
+
+        <script>
+            var data;//para guardar los datos globalmente como array y no tener que hacer cosas raras con la tabla
+            //ademas esto permite trabajar con data en la consola del navegador
+            //para ir probando cosillas (a diferencia de visual studio que si da un error no enseña nada y no sabemos por qué)
+
+            //cambiar los nombres al espanol con un diccionario
+              //poniendola aqui fuera de la funcion (d,i,c) se aplica a todo el codigo
+
+            const cs={"date":"fecha",
+                "name":"nombre",
+                "category":"categoria",
+                "value":"valor"}
+            
+            //true--> read locally (usually needs security permission, not available on browser)
+            //false, read the https:...
+            csv_url = false ? "category-brands.csv" : "https://raw.githubusercontent.com/bernardo-dauria/2021-02-10-example/main/category-brands.csv"
+            d3.csv(csv_url
+            //erase this and put it inside new functions (refactoring)
+            //(d,i,c) => {
+                //print only 10 lines, if i>0 return exits the function
+                //if (i>10) return d
+                //write headers (first line, i=0)
+                //if(i==0){
+                    //get table
+                   // d3.select("table")
+                    //append row
+                    //.append("tr")
+                    //"create" array of headers for that row
+                    //.selectAll("th")
+                    //bind the column names to that array
+                   // .data(c).enter()
+                    //put the names
+                   // .append("th").text(e => cs[e])
+               // }
+               // d3.select("table")
+               // .append("tr")
+               // .selectAll("td")
+               // .data(c).enter()
+               // .append("td").text(e => d[e])
+               // .attr("data-col", e => e)
+                //clasificarlas como date para pintarls de verde y negrita
+                //pero solo la primera columna (date) classed solo funciona si le pasas
+                //"date", true, luego podemos jugar con el true
+                //.classed("date", e=>e=="date")
+                //o en general añadir un atributo clase que añada el nombre de la columna como clase
+                //además de esta manera es general para cualquier dato, no hay que cambiar el codigo
+                //con date por otro nombre
+               // .attr("class", e=>e)
+            //}
+            ).then(tidying)
+
+
+
+            //pero tenemos el desplegable con la tabla fija...
+            //con estas nuevas funciones, hacemos la tabla dinámica
+            //con (d,i,c) se lee una vez y ya no se puede modificar
+            function updateTable(d) {
+            d3.select("table tbody")
+                .selectAll("tr")
+                .data(d)
+                .join("tr")
+                .selectAll("td")
+                .data(e => columns.map(x => e[x]))
+                .join("td")
+                    .text(x => x);
+
+        }
+
+        function makeHeader(d) {
+            d3.select("table thead").selectAll("tr").remove()
+
+            d3.select("table thead")
+                .append("tr")
+                .selectAll("th")
+                .data(columns)
+                .join("th").text(e => e)
+        }
+
+            var columns; //variable global de columnas
+            var maxValue;
+            function tidying(d){
+                data=d
+                columns=d.columns
+                maxValue = d3.reduce(d, (p, v) => Math.max(p,v.value), 0)
+
+                //console.log(d)
+                //map es como el lapply, basicamente coge las fechas
+                //set las agrupa en valores unicos
+                //then, we convert it to array
+                dates=Array.from(new Set(data.map(e=>e.date)))
+                dateselector(dates)
+
+                //advanced version
+                makeHeader(d)
+                updateTable(d)
+            }
+
+            function dateselector(d){
+                //console.log(d)//funciona y da un array que es lo que deberia venir del tyding
+                //ahora hacemos lo importante, el desplegable para seleccionar
+                d3.select("#dateSelector")
+                .append("select")
+                //on change
+                .on("change", d=> updateSelect(d))
+                //array de opciones desplegables
+                .selectAll("option")
+                //array de los datos y bindearlo a opciones
+                .data(d).enter()
+                //añadir la opcion
+                .append("option")
+                //añadir el texto, solo el año, que siempre es uno de enero
+                .text(e=>e.slice(0,4))
+                //añadir un atributo para cada opcion con la fecha completa
+                .attr("value", e=>e)
+
+            }
+
+            function updateSelect(e){
+                //ver el valor de la fecha que se ha escogido
+                val=d3.select("select").node().value
+                //console.log(val)
+                //filtrar los datos (salen ya ordenados)
+                fdata=d3.filter(data, e=>e.date==val)
+                //mostrar solo los 10 primeros
+                n=10
+                fdata=fdata.sort(d3.descending)
+                //console.log(fdata)
+                fdata=fdata.slice(0,n)
+                //actualizar la tabla solo con los datos de ese año
+                updateTable(fdata)
+                //actualizar el dibujo
+                updateChart(fdata)
+                //add row clickables
+                addRowHandlers()
+            }
+
+            //funcion para hacer el dibujo
+            function updateChart(data){
+
+                svg =  d3.select("#myCanvas");
+                w = svg.node().width.baseVal.value;
+                h = svg.node().height.baseVal.value;
+
+                //hace una escala para poner n bins de datos en una distancia 0,w(ancho)
+                x = d3.scaleLinear([0, data.length], [0, w])
+                //hace una escala para el eje y para que quepa entre 0 y el maximo valor entre 0 y la altura (h)
+                y = d3.scaleLinear([0, maxValue], [0,h])
+                //set de categorias unicas
+                cat = new Set(d3.map(data, d => d.category))
+                //ponerle un color diferente a cada categoria
+                color = d3.scaleOrdinal(cat, d3.schemeTableau10)
+
+                svgBind = svg.text("")
+                    .selectAll("rect")
+                    .data(data)
+
+                svgBind.enter()
+                    .append('rect')
+                    .attr('x', (d , i) => x(i))
+                    .attr('y', d => y(maxValue - d.value))
+                    .attr('height', d => y(d.value))
+                    .attr('width', x(1)*0.95)
+                    //esto pone color a cada barrita. sustutiur segundo argumento por "red" o "blue" 
+                    //para que todas tengan el mismo color
+                    .attr('fill', "red")
+                    
+
+                    svgBind.enter()
+                    .append("text")
+                    .attr('x', 0)
+                    .attr('y', 0)
+                    .attr('transform',
+                    (d , i) => 'translate('+x(i+0.5)+','+y(maxValue - d.value - 5000)+'), '+ 'rotate(-90)')
+                    .text(d => d.name);
+            }
+
+            
+
+            function colorP() {
+                d3.selectAll("p").style("color", "red");
+            }
+
+        
+
+            //colour a specfific bar function (given a row)
+
+            function colourBar(row){
+                    //console.log("hello")
+                    //console.log(row)
+                    
+                    i=row.id-1
+                    console.log(i)
+                    //companyName=row.getElementsByTagName("td")[1].innerHTML
+                    svg =  d3.select("#myCanvas");
+                    //console.log(svg.selectAll("rect")["_groups"][0][2])
+                    rectangles=svg.selectAll("rect")["_groups"][0]
+                    //repaint all the others in red
+                    for(j=0;j<rectangles.length;j++){
+                        rectangles[j]["style"].fill="red"
+                    }
+                    //select that row and paint the bar into another colour
+                    
+                    a=rectangles[i]
+                    a["style"].fill="blue"
+                    
+            }
+
+
+            //function to make rows clickable and use the colour bar function
+
+            function addRowHandlers() {
+                var table = document.getElementById("table");
+                var rows = table.getElementsByTagName("tr");
+                for (i = 0; i < rows.length; i++) {
+                    //console.log(cells[i])
+                    rows[i].id=i
+                    rows[i].onclick =function() {
+                        colourBar(this)
+                    }
+                }
+                
+
+            }
+        
+        
+        </script>
+    </body>
+</html>
