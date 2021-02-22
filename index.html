@@ -11,23 +11,7 @@
             th{
                 color: blue
             }
-
-            .name{
-                color: red;
-                border: solid black 1pt
-            }
-            .name:hover{
-                border-width: 2pt;
-            }
-            .date {
-                color: green;
-            }
             
-            .date:hover
-            {
-                font-weight: bold;
-            }
-
             #myCanvas{
                 background-color: yellow;
             }
@@ -36,12 +20,13 @@
 
     <body>
         <p>
-            This page is inspired by the 
-            <a href="https://observablehq.com/@d3/bar-chart-race" target="_blank"><b>Bar Chart Race</b></a>
-            <button onclick="colorP()">Click me</button>
+            Assignment 3 Part 2: Multivariate histogram
+            <br>
 
+            Author: Arturo Prieto Tirado
+           
 
-            <div id="dateSelector"></div>
+            <div id="columnSelector"></div>
 
             <script>//vamos a crear el plot. Width 100% se adecua al tamaño de la ventana del navegador</script>
             <svg id="myCanvas" style="width:100%; height: 200px;"></svg>
@@ -63,49 +48,11 @@
 
             //cambiar los nombres al espanol con un diccionario
               //poniendola aqui fuera de la funcion (d,i,c) se aplica a todo el codigo
-
-            const cs={"date":"fecha",
-                "name":"nombre",
-                "category":"categoria",
-                "value":"valor"}
             
             //true--> read locally (usually needs security permission, not available on browser)
             //false, read the https:...
-            csv_url = false ? "category-brands.csv" : "https://raw.githubusercontent.com/bernardo-dauria/2021-02-10-example/main/category-brands.csv"
-            d3.csv(csv_url
-            //erase this and put it inside new functions (refactoring)
-            //(d,i,c) => {
-                //print only 10 lines, if i>0 return exits the function
-                //if (i>10) return d
-                //write headers (first line, i=0)
-                //if(i==0){
-                    //get table
-                   // d3.select("table")
-                    //append row
-                    //.append("tr")
-                    //"create" array of headers for that row
-                    //.selectAll("th")
-                    //bind the column names to that array
-                   // .data(c).enter()
-                    //put the names
-                   // .append("th").text(e => cs[e])
-               // }
-               // d3.select("table")
-               // .append("tr")
-               // .selectAll("td")
-               // .data(c).enter()
-               // .append("td").text(e => d[e])
-               // .attr("data-col", e => e)
-                //clasificarlas como date para pintarls de verde y negrita
-                //pero solo la primera columna (date) classed solo funciona si le pasas
-                //"date", true, luego podemos jugar con el true
-                //.classed("date", e=>e=="date")
-                //o en general añadir un atributo clase que añada el nombre de la columna como clase
-                //además de esta manera es general para cualquier dato, no hay que cambiar el codigo
-                //con date por otro nombre
-               // .attr("class", e=>e)
-            //}
-            ).then(tidying)
+            csv_url = false ? "histogram-data.csv" : "https://raw.githubusercontent.com/apt345/assignment-3-part-2/master/histogram-data.csv"
+            d3.dsv(";",csv_url).then(tidying)
 
 
 
@@ -113,6 +60,7 @@
             //con estas nuevas funciones, hacemos la tabla dinámica
             //con (d,i,c) se lee una vez y ya no se puede modificar
             function updateTable(d) {
+                //console.log(d)
             d3.select("table tbody")
                 .selectAll("tr")
                 .data(d)
@@ -135,20 +83,19 @@
         }
 
             var columns; //variable global de columnas
-            var maxValue;
+            var maxValuey;
+            var minValuey;
+
+
+            //tyding is ready
             function tidying(d){
                 data=d
                 columns=d.columns
-                maxValue = d3.reduce(d, (p, v) => Math.max(p,v.value), 0)
+                //console.log(columns)
+                
 
-                //console.log(d)
-                //map es como el lapply, basicamente coge las fechas
-                //set las agrupa en valores unicos
-                //then, we convert it to array
-                dates=Array.from(new Set(data.map(e=>e.date)))
-                dateselector(dates)
+                dateselector(columns.slice(1))
 
-                //advanced version
                 makeHeader(d)
                 updateTable(d)
             }
@@ -156,7 +103,7 @@
             function dateselector(d){
                 //console.log(d)//funciona y da un array que es lo que deberia venir del tyding
                 //ahora hacemos lo importante, el desplegable para seleccionar
-                d3.select("#dateSelector")
+                d3.select("#columnSelector")
                 .append("select")
                 //on change
                 .on("change", d=> updateSelect(d))
@@ -167,29 +114,74 @@
                 //añadir la opcion
                 .append("option")
                 //añadir el texto, solo el año, que siempre es uno de enero
-                .text(e=>e.slice(0,4))
+                .text(e=>e)
                 //añadir un atributo para cada opcion con la fecha completa
                 .attr("value", e=>e)
+
+                //add extra tag with the three of them together
+                d3.select("#columnSelector")
+                .selectAll("select")
+                .append("option")
+                .text("all")
+                //añadir un atributo para cada opcion con la fecha completa
+                .attr("value", "all")
 
             }
 
             function updateSelect(e){
-                //ver el valor de la fecha que se ha escogido
+                //ver el valor de la columna que se ha escogido
                 val=d3.select("select").node().value
                 //console.log(val)
-                //filtrar los datos (salen ya ordenados)
-                fdata=d3.filter(data, e=>e.date==val)
-                //mostrar solo los 10 primeros
-                n=10
-                fdata=fdata.sort(d3.descending)
+                //console.log(data)
+                //filtrar los datos para quedarnos con x y la columna)
+                fdata=[]
+                values=[]
+                if(val!="all"){
+                for(i=0;i<data.length;i++){
+                    //console.log(data[String(i)])
+                    row={}
+                    row["x"]=data[String(i)]["x"]
+                    row[val]=data[String(i)][val]
+                    values.push(data[String(i)][val])
+                    fdata.push(row)
+                }
+                //get max and min for y to plot
+                maxValuey=Math.max.apply(null, values)
+                minValuey=Math.min.apply(null, values)
+
+
                 //console.log(fdata)
-                fdata=fdata.slice(0,n)
                 //actualizar la tabla solo con los datos de ese año
-                updateTable(fdata)
+                //updateTable(fdata)
                 //actualizar el dibujo
                 updateChart(fdata)
-                //add row clickables
-                addRowHandlers()
+                }else{
+                    data1=[]
+                    data2=[]
+                    data3=[]
+                    values=[]
+                    //construct three arrays for data
+                    for(i=0;i<data.length;i++){
+                    //console.log(data[String(i)])
+                        row={}
+                        row[columns[1]]=data[String(i)][columns[1]]
+                        values.push(data[String(i)][columns[1]])
+                        data1.push(row)
+                        row={}
+                        row[columns[2]]=data[String(i)][columns[2]]
+                        values.push(data[String(i)][columns[2]])
+                        data2.push(row)
+                        row={}
+                        row[columns[3]]=data[String(i)][columns[3]]
+                        values.push(data[String(i)][columns[3]])
+                        data3.push(row)
+                    }
+
+                    //find total maximum
+                    maxValueytotal=Math.max.apply(null, values)
+                    minValueytotal=Math.min.apply(null, values)
+                    fullchart(data1,data2,data3)
+                }
             }
 
             //funcion para hacer el dibujo
@@ -200,85 +192,145 @@
                 h = svg.node().height.baseVal.value;
 
                 //hace una escala para poner n bins de datos en una distancia 0,w(ancho)
-                x = d3.scaleLinear([0, data.length], [0, w])
+                x = d3.scaleLinear([0,data.length], [0, w])
                 //hace una escala para el eje y para que quepa entre 0 y el maximo valor entre 0 y la altura (h)
-                y = d3.scaleLinear([0, maxValue], [0,h])
-                //set de categorias unicas
-                cat = new Set(d3.map(data, d => d.category))
-                //ponerle un color diferente a cada categoria
-                color = d3.scaleOrdinal(cat, d3.schemeTableau10)
-
+                //scale such that if value<0, that is set to be the origin of y axis 
+                if(minValuey>0){
+                    y = d3.scaleLinear([0, maxValuey], [0,h])
+                
                 svgBind = svg.text("")
                     .selectAll("rect")
                     .data(data)
-
+                    
                 svgBind.enter()
                     .append('rect')
                     .attr('x', (d , i) => x(i))
-                    .attr('y', d => y(maxValue - d.value))
-                    .attr('height', d => y(d.value))
-                    .attr('width', x(1)*0.95)
+                    .attr('y', d => y(maxValuey - d[val]))
+                    .attr('height', d => y(d[val]))
+                    .attr('width', x(1))
+                    .attr('stroke', '#2378ae')
                     //esto pone color a cada barrita. sustutiur segundo argumento por "red" o "blue" 
                     //para que todas tengan el mismo color
                     .attr('fill', "red")
-                    
-
-                    svgBind.enter()
-                    .append("text")
-                    .attr('x', 0)
-                    .attr('y', 0)
-                    .attr('transform',
-                    (d , i) => 'translate('+x(i+0.5)+','+y(maxValue - d.value - 5000)+'), '+ 'rotate(-90)')
-                    .text(d => d.name);
-            }
-
-            
-
-            function colorP() {
-                d3.selectAll("p").style("color", "red");
-            }
-
-        
-
-            //colour a specfific bar function (given a row)
-
-            function colourBar(row){
-                    //console.log("hello")
-                    //console.log(row)
-                    
-                    i=row.id-1
-                    console.log(i)
-                    //companyName=row.getElementsByTagName("td")[1].innerHTML
-                    svg =  d3.select("#myCanvas");
-                    //console.log(svg.selectAll("rect")["_groups"][0][2])
-                    rectangles=svg.selectAll("rect")["_groups"][0]
-                    //repaint all the others in red
-                    for(j=0;j<rectangles.length;j++){
-                        rectangles[j]["style"].fill="red"
-                    }
-                    //select that row and paint the bar into another colour
-                    
-                    a=rectangles[i]
-                    a["style"].fill="blue"
-                    
-            }
 
 
-            //function to make rows clickable and use the colour bar function
-
-            function addRowHandlers() {
-                var table = document.getElementById("table");
-                var rows = table.getElementsByTagName("tr");
-                for (i = 0; i < rows.length; i++) {
-                    //console.log(cells[i])
-                    rows[i].id=i
-                    rows[i].onclick =function() {
-                        colourBar(this)
-                    }
-                }
+                }else{
+                y = d3.scaleLinear([0, maxValuey-minValuey], [0,h])
                 
+                svgBind = svg.text("")
+                    .selectAll("rect")
+                    .data(data)
+                    
+                svgBind.enter()
+                    .append('rect')
+                    .attr('x', (d , i) => x(i))
+                    .attr('y', d => y(maxValuey-minValuey - d[val]))
+                    .attr('height', d => y(d[val]-minValuey))
+                    .attr('width', x(1))
+                    .attr('stroke', '#2378ae')
+                    //esto pone color a cada barrita. sustutiur segundo argumento por "red" o "blue" 
+                    //para que todas tengan el mismo color
+                    .attr('fill', "red")
+                }
+
+                    var axisScale = d3.scaleLinear() 
+                    .domain([0, 50]) 
+                    .range([0, w])
+
+                // Add scales to axis
+                var x_axis = d3.axisBottom().scale(axisScale);
+
+                //Append group and insert axis
+                svg.append("g")
+                .call(x_axis);
 
             }
+
+            function fullchart(data1,data2,data3){
+                //simply construct three histograms same way as before (3 arrays as input) with opacity
+                svg =  d3.select("#myCanvas");
+                w = svg.node().width.baseVal.value;
+                h = svg.node().height.baseVal.value;
+                //hace una escala para poner n bins de datos en una distancia 0,w(ancho)
+                x = d3.scaleLinear([0,data1.length], [0, w])
+                //hace una escala para el eje y para que quepa entre 0 y el maximo valor entre 0 y la altura (h)
+                y = d3.scaleLinear([0, maxValueytotal-minValueytotal], [0,h])
+
+                //plot first histogram
+                val="data1"
+                svgBind = svg.text("")
+                    .selectAll("rect")
+                    .data(data1)
+                    
+                svgBind.enter()
+                    .append('rect')
+                    .attr('x', (d , i) => x(i))
+                    .attr('y', d => y(maxValueytotal-minValueytotal - d[val]))
+                    .attr('height', d => y(d[val]-minValueytotal))
+                    .attr('width', x(1))
+                    .attr('stroke', '#2378ae')
+                    //esto pone color a cada barrita. sustutiur segundo argumento por "red" o "blue" 
+                    //para que todas tengan el mismo color
+                    .attr('fill', "red")
+                    .style("opacity", 0.6)
+                    
+                
+                //plot second histogram
+                val="data2"
+                svg.selectAll("rect2")
+                    .data(data2).enter()
+                    .append('rect')
+                    .attr('x', (d , i) => x(i))
+                    .attr('y', d => y(maxValueytotal-minValueytotal - d[val]))
+                    .attr('height', d => y(d[val]-minValueytotal))
+                    .attr('width', x(1))
+                    .attr('stroke', '#2378ae')
+                    //esto pone color a cada barrita. sustutiur segundo argumento por "red" o "blue" 
+                    //para que todas tengan el mismo color
+                    .attr('fill', "blue")
+                    .style("opacity", 0.6)
+
+                //plot third histogram
+                val="data3"
+                svg.selectAll("rect3")
+                    .data(data3)
+                    .enter()
+                    .append('rect')
+                    .attr('x', (d , i) => x(i))
+                    .attr('y', d => y(maxValueytotal-minValueytotal - d[val]))
+                    .attr('height', d => y(d[val]-minValueytotal))
+                    .attr('width', x(1))
+                    .attr('stroke', '#2378ae')
+                    //esto pone color a cada barrita. sustutiur segundo argumento por "red" o "blue" 
+                    //para que todas tengan el mismo color
+                    .attr('fill', "green")
+                    .style("opacity", 0.6)
+
+
+                    //X axis
+
+                    var axisScale = d3.scaleLinear() 
+                    .domain([0, 50]) 
+                    .range([0, w])
+
+                // Add scales to axis
+                var x_axis = d3.axisBottom().scale(axisScale);
+
+                //Append group and insert axis
+                svg.append("g")
+                .call(x_axis);
+
+
+                // Handmade legend
+                svg.append("circle").attr("cx",20).attr("cy",30).attr("r", 6).style("fill", "red").style("opacity", 0.6)
+                svg.append("circle").attr("cx",20).attr("cy",60).attr("r", 6).style("fill", "blue").style("opacity", 0.6)
+                svg.append("circle").attr("cx",20).attr("cy",90).attr("r", 6).style("fill", "green").style("opacity", 0.6)
+                svg.append("text").attr("x", 30).attr("y", 30).text("data1").style("font-size", "15px").attr("alignment-baseline","middle")
+                svg.append("text").attr("x", 30).attr("y", 60).text("data2").style("font-size", "15px").attr("alignment-baseline","middle")
+                svg.append("text").attr("x", 30).attr("y", 90).text("data3").style("font-size", "15px").attr("alignment-baseline","middle")
+
+
+                }
         
         
         </script>
